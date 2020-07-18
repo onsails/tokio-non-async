@@ -1,0 +1,21 @@
+[package]
+name = "tokio-non-async"
+version = "0.1.0"
+authors = ["Andrey kuznetsov <fear@loathing.in>"]
+edition = "2018"
+license-file = "LICENSE.txt"
+description = "Helpers for dealing with tokio channels in non-async code"
+homepage = "https://github.com/onsails/tokio-non-async"
+repository = "https://github.com/onsails/tokio-non-async"
+documentation = "https://docs.rs/tokio-non-async"
+categories = ["tokio", "async"]
+keywords = ["tokio", "async", "channels", "mpsc"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "0.3"
+tokio = { version = "0.2", features = ["sync"] }
+
+[dev-dependencies]
+tokio = { version = "0.2", features = ["rt-threaded", "macros", "blocking"]}
