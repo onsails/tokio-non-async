@@ -1,5 +1,6 @@
-use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::error::{SendError, TryRecvError, TrySendError};
 use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
 
 pub trait BlockingRecv<T> {
     fn optimistic_blocking_recv(&mut self) -> Option<T>;
@@ -24,6 +25,26 @@ impl<T> BlockingRecv<T> for Receiver<T> {
     }
 }
 
+pub trait BlockingSend<T> {
+    fn optimistic_blocking_send(&mut self, message: T) -> Result<(), SendError<T>>;
+
+    fn blocking_send(&mut self, message: T) -> Result<(), SendError<T>>;
+}
+
+impl<T> BlockingSend<T> for Sender<T> {
+    fn optimistic_blocking_send(&mut self, message: T) -> Result<(), SendError<T>> {
+        match self.try_send(message) {
+            Ok(()) => Ok(()),
+            Err(TrySendError::Closed(value)) => Err(SendError(value)),
+            Err(TrySendError::Full(value)) => self.blocking_send(value),
+        }
+    }
+
+    fn blocking_send(&mut self, message: T) -> Result<(), SendError<T>> {
+        futures::executor::block_on(self.send(message))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -33,11 +54,13 @@ mod test {
     async fn optimistic_blocking() {
         let (mut tx, mut rx) = mpsc::channel(10);
 
-        for i in 0i32..10 {
-            tx.send(i).await.unwrap();
-        }
-
-        drop(tx);
+        tokio::task::spawn_blocking(move || {
+            for i in 0i32..10 {
+                tx.optimistic_blocking_send(i).unwrap();
+            }
+        })
+        .await
+        .unwrap();
 
         tokio::task::spawn_blocking(move || {
             for i in 0i32..10 {
@@ -55,11 +78,13 @@ mod test {
     async fn blocking() {
         let (mut tx, mut rx) = mpsc::channel(10);
 
-        for i in 0i32..10 {
-            tx.send(i).await.unwrap();
-        }
-
-        drop(tx);
+        tokio::task::spawn_blocking(move || {
+            for i in 0i32..10 {
+                tx.blocking_send(i).unwrap();
+            }
+        })
+        .await
+        .unwrap();
 
         tokio::task::spawn_blocking(move || {
             for i in 0i32..10 {
